@@ -435,7 +435,20 @@
     $('.buffer').blur();
   };
 
+  const scaleEnvironment = function() {
+    const env = $('#environment');
+    const container = $('#scale-container');
+    const baseW = env.data('base-width') || env.outerWidth();
+    const baseH = env.data('base-height') || env.outerHeight();
+    env.data('base-width', baseW);
+    env.data('base-height', baseH);
+    const scale = Math.min(container.width() / baseW, container.height() / baseH);
+    env.css('transform', 'scale(' + scale + ')');
+  };
+
   $(document).ready(function() {
+    scaleEnvironment();
+    $(window).on('resize', scaleEnvironment);
     // attempt to cache objects
     $(['theKingBlur.jpg',
       'theKingFocus.jpg',
