@@ -1,4 +1,14 @@
 (function($) {
+   const scaleEnvironment = function() {
+      const env = $('#apple-desktop');
+      const container = $('#scale-container');
+      const baseW = env.data('base-width') || env.outerWidth();
+      const baseH = env.data('base-height') || env.outerHeight();
+      env.data('base-width', baseW);
+      env.data('base-height', baseH);
+      const scale = Math.min(container.width() / baseW, container.height() / baseH);
+      env.css('transform', 'scale(' + scale + ')');
+   };
    $.ajax({
       url : '/swf/theKing.swf'
    });
@@ -8,6 +18,9 @@
       'macHDFocus.jpg']).each(function() {
          $('<img />')[0].src = '/img/' + this;
       });
+
+   scaleEnvironment();
+   $(window).on('resize', scaleEnvironment);
 
    (function() {
       var diffX = 0;
