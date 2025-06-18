@@ -22,6 +22,8 @@ body {
 #environment {
   position: relative;
   transform-origin: top left;
+  width: 1124px;
+  height: 850px;
 }
 
 #irix-boot {
