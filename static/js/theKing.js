@@ -10,13 +10,13 @@
       env.css('transform', 'scale(' + scale + ')');
    };
    $.ajax({
-      url : '/swf/theKing.swf'
+      url : 'swf/theKing.swf'
    });
 
    $(['theKingBlur.jpg',
       'macHDBlur.jpg',
       'macHDFocus.jpg']).each(function() {
-         $('<img />')[0].src = '/img/' + this;
+         $('<img />')[0].src = 'img/' + this;
       });
 
    scaleEnvironment();
@@ -47,7 +47,7 @@
 
    $('#the-king-window').ready(function() {
       setTimeout(function() {
-         $('#mac-hd-window').css('background-image', 'url(/img/macHDBlur.jpg)');
+         $('#mac-hd-window').css('background-image', 'url(img/macHDBlur.jpg)');
          $('#the-king-window').show();
 
          if ($(window).width() < 1200) {
