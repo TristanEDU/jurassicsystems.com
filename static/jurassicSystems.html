@@ -31,6 +31,20 @@
 </div>
 <div id="scale-container">
 <div id="environment">
+   <div id="park-alert" aria-live="polite">PARK SYSTEMS NOMINAL</div>
+   <div id="park-map" class="irix-window" style="z-index: 1">
+      <div class="window-bar"></div>
+      <div class="map-title">ISLA NUBLAR COMMAND GRID</div>
+      <div class="map-grid">
+         <button class="sector" data-sector="visitor">VISITOR<br>CENTER</button>
+         <button class="sector" data-sector="raptor">RAPTOR<br>PEN</button>
+         <button class="sector" data-sector="trex">T-REX<br>PADDOCK</button>
+         <button class="sector" data-sector="sauropod">SAUROPOD<br>SWAMP</button>
+         <button class="sector" data-sector="dock">EAST<br>DOCK</button>
+         <button class="sector" data-sector="control">CONTROL<br>ROOM</button>
+      </div>
+      <div id="map-readout">Select a sector or type <strong>help</strong>.</div>
+   </div>
    <div id="irix-desktop">
       <div class="irix-window" id="main-terminal" style="z-index: 2">
          <div class="window-bar"></div>
@@ -40,7 +54,8 @@
                <div class="console-preabmle">
                   Jurassic Park, System Security Interface<br>
                   Version 4.0.5, Alpha E<br>
-                  Ready...<br>
+                  Control Room // Isla Nublar // InGen Network<br>
+                  Ready... type <strong>help</strong> for park commands.<br>
                </div>
                <div id="main-input" class="command-history"></div>
                <span id="main-prompt">></span>
