@@ -6,6 +6,22 @@
       commands: {},
       maxIndex: 1,
       musicOn: false,
+      park: {
+        doorsLocked: true,
+        fencesOnline: true,
+        phonesOnline: true,
+        tourRunning: true,
+        lysineContingency: false,
+        selectedSector: 'visitor',
+        sectors: {
+          visitor: { name: 'Visitor Center', status: 'SECURE', note: 'main rotunda and lab access nominal' },
+          raptor: { name: 'Raptor Pen', status: 'CAUTION', note: 'motion sensors report perimeter pacing' },
+          trex: { name: 'T-Rex Paddock', status: 'SECURE', note: '10,000 volt fence armed' },
+          sauropod: { name: 'Sauropod Swamp', status: 'SECURE', note: 'herd cameras online' },
+          dock: { name: 'East Dock', status: 'SECURE', note: 'storm beacon and winch available' },
+          control: { name: 'Control Room', status: 'SECURE', note: 'Unix mainframe awaiting commands' },
+        },
+      },
       sounds: {},
     };
     const api = {};
@@ -44,6 +60,10 @@
 
     api.getActive = function() {
       return env.active;
+    }
+
+    api.getEnvironment = function() {
+      return env;
     }
 
     api.nextIndex = function() {
@@ -130,6 +150,58 @@
 
   jpTerminal.init();
   jpTerminal.setActive('#main-terminal');
+
+
+  const appendMain = function(content) {
+    $('#main-input').append(content);
+    const wrap = $('#main-inner');
+    wrap.scrollTop(wrap[0].scrollHeight);
+  };
+
+  const setSectorStatus = function(env, sector, status, note) {
+    if (!env.park.sectors[sector]) {
+      return false;
+    }
+    env.park.sectors[sector].status = status;
+    if (note) {
+      env.park.sectors[sector].note = note;
+    }
+    updateParkDisplay(env);
+    return true;
+  };
+
+  const updateParkDisplay = function(env) {
+    const park = env.park;
+    $('.sector').each(function() {
+      const key = $(this).data('sector');
+      const sector = park.sectors[key];
+      $(this)
+        .toggleClass('selected', key === park.selectedSector)
+        .toggleClass('offline', sector.status !== 'SECURE');
+    });
+
+    const selected = park.sectors[park.selectedSector];
+    $('#map-readout').html(
+      '<strong>' + selected.name + '</strong><br>' +
+      'STATUS: ' + selected.status + '<br>' +
+      selected.note
+    );
+
+    const insecure = Object.keys(park.sectors)
+      .filter(function(key) { return park.sectors[key].status !== 'SECURE'; });
+    let alertText = 'PARK SYSTEMS NOMINAL';
+    let alertClass = '';
+
+    if (!park.fencesOnline || insecure.length > 2) {
+      alertText = 'PARK WIDE EMERGENCY';
+      alertClass = 'danger';
+    } else if (insecure.length || !park.phonesOnline || !park.tourRunning) {
+      alertText = 'SYSTEM WARNING';
+      alertClass = 'warning';
+    }
+
+    $('#park-alert').attr('class', alertClass).text(alertText);
+  };
 
   jpTerminal.addCommand({
     name: 'music',
@@ -365,6 +437,143 @@
     }
   });
 
+
+  jpTerminal.addCommand({
+    name: 'status',
+    summary: 'show the live Jurassic Park operations board',
+    manPage: `SYNOPSIS\n\tstatus\n\nDESCRIPTION\n\tDisplay fences, phones, tour vehicles, locks, lysine contingency, and sector alarms.\n`,
+    command: function(env) {
+      const park = env.park;
+      const rows = [
+        ['Electric fences', park.fencesOnline ? 'ONLINE' : 'OFFLINE'],
+        ['Door locks', park.doorsLocked ? 'LOCKED' : 'UNLOCKED'],
+        ['Phones', park.phonesOnline ? 'ONLINE' : 'DOWN'],
+        ['Tour program', park.tourRunning ? 'RUNNING' : 'STOPPED'],
+        ['Lysine contingency', park.lysineContingency ? 'ACTIVE' : 'STANDBY'],
+      ];
+      const table = $('<table id="ops-output"><tbody></tbody></table>');
+      rows.forEach(function(row) {
+        table.find('tbody').append($('<tr>').append($('<td>').text(row[0])).append($('<td>').text('[' + row[1] + ']')));
+      });
+      appendMain($('<div>').append($('<div>').text('Park Operations Status')).append(table));
+    }
+  });
+
+  jpTerminal.addCommand({
+    name: 'fences',
+    summary: 'switch or inspect the park electric fences',
+    manPage: `SYNOPSIS\n\tfences [on|off]\n\nDESCRIPTION\n\tInspect or change electric fence power. Turning fences off will trip paddock alarms.\n`,
+    command: function(env, inputLine) {
+      const arg = inputLine.trim().split(/ +/)[1] || '';
+      if (!arg) {
+        appendMain($('<div>').text('fences: ' + (env.park.fencesOnline ? 'ONLINE' : 'OFFLINE')));
+        return;
+      }
+      if (!arg.match(/^(?:on|off)$/i)) {
+        appendMain($('<div>').text('fences: expected on or off'));
+        return;
+      }
+      env.park.fencesOnline = arg.toLowerCase() === 'on';
+      setSectorStatus(env, 'trex', env.park.fencesOnline ? 'SECURE' : 'OFFLINE', env.park.fencesOnline ? '10,000 volt fence armed' : 'fence power lost; asset movement possible');
+      setSectorStatus(env, 'raptor', env.park.fencesOnline ? 'CAUTION' : 'OFFLINE', env.park.fencesOnline ? 'motion sensors report perimeter pacing' : 'raptor pen restraint grid offline');
+      env.sounds.beep.play();
+      appendMain($('<div>').text('fences: ' + (env.park.fencesOnline ? 'power restored' : 'power disabled')));
+    }
+  });
+
+  jpTerminal.addCommand({
+    name: 'doors',
+    summary: 'lock or unlock visitor center security doors',
+    manPage: `SYNOPSIS\n\tdoors [lock|unlock]\n\nDESCRIPTION\n\tControl the visitor center door locks.\n`,
+    command: function(env, inputLine) {
+      const arg = inputLine.trim().split(/ +/)[1] || '';
+      if (!arg.match(/^(?:lock|unlock)$/i)) {
+        appendMain($('<div>').text('doors: ' + (env.park.doorsLocked ? 'LOCKED' : 'UNLOCKED') + ' (use lock or unlock)'));
+        return;
+      }
+      env.park.doorsLocked = arg.toLowerCase() === 'lock';
+      setSectorStatus(env, 'visitor', env.park.doorsLocked ? 'SECURE' : 'CAUTION', env.park.doorsLocked ? 'main rotunda and lab access nominal' : 'visitor center doors are unlocked');
+      appendMain($('<div>').text('doors: visitor center ' + (env.park.doorsLocked ? 'locked' : 'unlocked')));
+    }
+  });
+
+  jpTerminal.addCommand({
+    name: 'reboot',
+    summary: 'restore phone, tour, door, and fence subsystems',
+    manPage: `SYNOPSIS\n\treboot\n\nDESCRIPTION\n\tRun the control room reboot sequence and restore park subsystems.\n`,
+    command: function(env) {
+      env.park.doorsLocked = true;
+      env.park.fencesOnline = true;
+      env.park.phonesOnline = true;
+      env.park.tourRunning = true;
+      env.park.lysineContingency = false;
+      setSectorStatus(env, 'visitor', 'SECURE', 'main rotunda and lab access nominal');
+      setSectorStatus(env, 'raptor', 'CAUTION', 'motion sensors report perimeter pacing');
+      setSectorStatus(env, 'trex', 'SECURE', '10,000 volt fence armed');
+      setSectorStatus(env, 'dock', 'SECURE', 'storm beacon and winch available');
+      appendMain($('<div>').text('reboot: system ready. We spared no expense.'));
+    }
+  });
+
+
+  jpTerminal.addCommand({
+    name: 'phones',
+    summary: 'switch or inspect island phone lines',
+    manPage: `SYNOPSIS
+	phones [on|off]
+
+DESCRIPTION
+	Inspect or change island phone service for the control room and visitor center.
+`,
+    command: function(env, inputLine) {
+      const arg = inputLine.trim().split(/ +/)[1] || '';
+      if (!arg.match(/^(?:on|off)$/i)) {
+        appendMain($('<div>').text('phones: ' + (env.park.phonesOnline ? 'ONLINE' : 'DOWN') + ' (use on or off)'));
+        return;
+      }
+      env.park.phonesOnline = arg.toLowerCase() === 'on';
+      setSectorStatus(env, 'control', env.park.phonesOnline ? 'SECURE' : 'CAUTION', env.park.phonesOnline ? 'Unix mainframe awaiting commands' : 'phone lines are down; radio fallback required');
+      appendMain($('<div>').text('phones: ' + (env.park.phonesOnline ? 'service restored' : 'service interrupted')));
+    }
+  });
+
+  jpTerminal.addCommand({
+    name: 'tour',
+    summary: 'start, stop, or inspect the automated tour program',
+    manPage: `SYNOPSIS
+	tour [start|stop]
+
+DESCRIPTION
+	Control the automated Explorer tour program.
+`,
+    command: function(env, inputLine) {
+      const arg = inputLine.trim().split(/ +/)[1] || '';
+      if (!arg.match(/^(?:start|stop)$/i)) {
+        appendMain($('<div>').text('tour: ' + (env.park.tourRunning ? 'RUNNING' : 'STOPPED') + ' (use start or stop)'));
+        return;
+      }
+      env.park.tourRunning = arg.toLowerCase() === 'start';
+      setSectorStatus(env, 'trex', env.park.tourRunning ? 'SECURE' : 'CAUTION', env.park.tourRunning ? '10,000 volt fence armed' : 'Explorer vehicles stopped near paddock overlook');
+      appendMain($('<div>').text('tour program: ' + (env.park.tourRunning ? 'started' : 'stopped')));
+    }
+  });
+
+  jpTerminal.addCommand({
+    name: 'lysine',
+    summary: 'toggle the book-inspired lysine contingency',
+    manPage: `SYNOPSIS\n\tlysine [on|off]\n\nDESCRIPTION\n\tToggle the lysine contingency monitor referenced by the Jurassic Park novel.\n`,
+    command: function(env, inputLine) {
+      const arg = inputLine.trim().split(/ +/)[1] || '';
+      if (!arg.match(/^(?:on|off)$/i)) {
+        appendMain($('<div>').text('lysine: ' + (env.park.lysineContingency ? 'ACTIVE' : 'STANDBY') + ' (use on or off)'));
+        return;
+      }
+      env.park.lysineContingency = arg.toLowerCase() === 'on';
+      updateParkDisplay(env);
+      appendMain($('<div>').text('lysine contingency ' + (env.park.lysineContingency ? 'armed' : 'returned to standby')));
+    }
+  });
+
   jpTerminal.addCommand({
     name: 'man',
     summary: 'display reference manual for a given command',
@@ -551,6 +760,15 @@
     $('#chess-terminal .buffer').bind('input propertychange', function() {
       $('#curr-chess-input').text($(this).val());
     });
+
+    $('.sector').click(function(e) {
+      e.stopPropagation();
+      const activeEnv = jpTerminal.getEnvironment();
+      activeEnv.park.selectedSector = $(this).data('sector');
+      updateParkDisplay(activeEnv);
+    });
+
+    updateParkDisplay(jpTerminal.getEnvironment());
 
     $('#apple-desktop').click(function(e){
       if ($(e.target).closest('.mac-window').attr('id') !== 'the-king-window') {
